@@ -1,0 +1,321 @@
+---
+title: "Homework7"
+output:
+  pdf_document: default
+  html_document: default
+date: "2022-11-27"
+---
+```{r}
+library(fpc)
+library(smacof)
+library(cluster)
+library(pdfCluster)
+library(prabclus)
+library(mclust)
+library(teigen)
+library(mixsmsn)
+library(fda)
+library(flexmix)
+```
+
+```{r}
+library(poLCA)
+library(scatterplot3d)
+
+data(election)
+
+election12<-election[,1:12] #extract categorical variables to be clustered
+
+electionNA<-election12
+for (i in 1:12){
+  levels(electionNA[,i]) <- c(levels(election12[,i]),"NA")
+  electionNA[is.na(election12[,i]),i] <- "NA"
+}
+#This dataset contains the NA values
+```
+
+(a) Compute a latent class clustering with 3 clusters using poLCA.
+```{r}
+f<-cbind(MORALG,CARESG,KNOWG,LEADG,DISHONG,INTELG,MORALB,CARESB,KNOWB,LEADB,DISHONB,INTELB)~1
+
+clas1<-poLCA(f, electionNA, nclass=3)
+```
+log-likelihood: -25990.17
+df= 1639 
+BIC: 53073.46
+
+
+(b) Compute a latent class clustering with 3 clusters using flexmixedruns.
+```{r}
+
+set.seed(1234)
+clas2<-flexmixedruns(electionNA, continuous = 0, discrete = 12, n.cluster = 3)
+
+```
+Cluster sizes:
+  1   2   3 
+683 845 257  
+
+log-likelihood: -25885.28
+df=146
+BIC: 52863.69 
+
+
+(c) Compute a distance-based clustering of your choice with 3 clusters based on the simple matching distance.
+```{r}
+library(nomclust)
+?nomclust
+clas3<-nomclust(electionNA, measure = "sm", method = "average", clu.high = 3)
+
+plot(clas3$mem$clu_3)
+summary(clas3$mem$clu_3)
+table(clas3$mem$clu_3)
+
+```
+   1    2    3 
+1708   47   30 
+
+
+(d) Compute a dissimilarity-based clustering of your choice with 3 clusters using this dissimilarity on the election12 data with missing values.
+```{r}
+gower<-daisy(electionNA, metric="gower")
+plot(gower)
+
+#election12 doesn't work
+elec.gower <- hclust(gower,method="average")
+plot(as.dendrogram(elec.gower), main="Average Linkage-Gower distance", xlab = "n.clusters", ylab="..")
+
+clas4<-cutree(elec.gower, k=3)
+plot(clas4)
+table(clas4)
+
+```
+
+(e) Compute a latent class clustering using flexmixedruns with estimated number of clusters.
+```{r}
+set.seed(1234)
+clas5<-flexmixedruns(electionNA, continuous = 0, discrete = 12, n.cluster = 1:10)
+clas5$optimalk
+
+```
+The optimal number of clusters is 8.
+Cluster sizes:
+  1   2   3   4   5   6   7   8 
+131 202 107 177 362 327 250 229 
+
+
+Compute ARIs for every pair of clusterings.
+```{r}
+
+ARI12<-adjustedRandIndex(clas1$predclass,clas2$flexout[[3]]@cluster)
+ARI13<-adjustedRandIndex(clas1$predclass,clas3$mem$clu_3)
+ARI14<-adjustedRandIndex(clas1$predclass,clas4)
+ARI15<-adjustedRandIndex(clas1$predclass,clas5$flexout[[8]]@cluster)
+ARI23<-adjustedRandIndex(clas2$flexout[[3]]@cluster,clas3$mem$clu_3)
+ARI24<-adjustedRandIndex(clas2$flexout[[3]]@cluster,clas4)
+ARI25<-adjustedRandIndex(clas2$flexout[[3]]@cluster,clas5$flexout[[8]]@cluster)
+ARI34<-adjustedRandIndex(clas3$mem$clu_3,clas4)
+ARI35<-adjustedRandIndex(clas3$mem$clu_3,clas5$flexout[[8]]@cluster)
+ARI45<-adjustedRandIndex(clas4,clas5$flexout[[8]]@cluster)
+
+
+vect11<-c(0,ARI12, ARI13,ARI14,ARI15)
+vect22<-c(ARI12,0,ARI23,ARI24,ARI25)
+vect33<-c(ARI13,ARI23,0,ARI34,ARI35)
+vect44<-c(ARI14,ARI24,ARI34,0,ARI45)
+vect55<-c(ARI15,ARI25,ARI35,ARI45,0)
+  
+ARI<-cbind(vect11,vect22,vect33,vect44, vect55)
+ARI
+```
+ARI values are very low for every pairs considered, the one that assume an almost good value is the ARI34 that is equal to 0.67336. This means that model3 with the average linkage method and model4 with the gower distance matrix perform a little bit in a similar way in terms of clustering.
+
+```{r}
+dist<-sm(electionNA)
+mds<-mds(dist, ndim=2)
+
+plot(mds$conf,pch=clusym[clas1$predclass],col=clas1$predclass,main="poLCA")
+```
+The cluster 2 is the better represented while the third is so confused.
+
+```{r}
+plot(mds$conf,pch=clusym[clas2$flexout[[3]]@cluster],col=clas2$flexout[[3]]@cluster,main="flexmixedruns3")
+```
+This clustering is similar to the previous one if we look at the third cluster composition, first and second clusters are sufficiently good separated.
+
+```{r}
+plot(mds$conf,pch=clusym[clas3$mem$clu_3],col=clas3$mem$clu_3,main="Simple matching-Average")
+```
+In this plot the biggest majority of the units are classified in the first cluster while the other two clusters are composed by scattered observations.
+
+```{r}
+plot(mds$conf,pch=clusym[clas4],col=clas4,main="Gower")
+```
+As the previous plot the biggest majority of observations belong to cluster 1 while the others are scattered.
+
+
+```{r}
+plot(mds$conf,pch=clusym[clas5$flexout[[8]]@cluster],col=clas5$flexout[[8]]@cluster,main="flexmixedruns8")
+```
+This plot is confused if we want to define clusters 3, 4 and 6, it can not provide a good classification.
+
+
+2. For two different latent class clusterings computed in question 1 on the electionwithna-data produce heatmaps. 
+Comment on the plots. Do you find the clusters convincing? Why or why not? Is there evidence against local independence?
+```{r}
+library(RColorBrewer)
+heatmap(data.matrix(electionNA)[order(clas2$flexout[[3]]@cluster),],
+        Rowv=NA,
+        Colv=clas1$predclass,
+        RowSideColors=palette()[clas2$flexout[[3]]@cluster]
+        [order(clas2$flexout[[3]]@cluster)],
+        col=brewer.pal(5, 'Greens'),scale="none")
+#legend(x="bottomright", legend=c("Extremely well","Quite well","Not too well","Not well at all"),fill=brewer.pal(5, 'Greens'))
+```
+The heatmap plot gives information about what values of what variables characterize the clusters.
+Heat Maps are graphical representations of data that utilize color-coded systems.
+The clusters in the dendrogram on the top are ordered based on the behaviour of the observations.
+
+Variables 3-7 for the black cluster and last 5 variables for the pink one, assume more positive values for the responses.
+The green cluster show the majority of 'Not well at all' and 'Not too well' for all variables.
+
+
+```{r}
+heatmap(data.matrix(electionNA)[order(clas5$flexout[[8]]@cluster),],
+        Rowv=NA,
+        Colv=clas3$mem$clu_3,
+        RowSideColors=palette()[clas5$flexout[[8]]@cluster]
+        [order(clas5$flexout[[8]]@cluster)],
+        col=brewer.pal(5, 'Oranges'),scale="none",)
+#legend(x="bottomright", legend=c("Extremely well","Quite well","Not too well","Not well at all"),fill=brewer.pal(5, 'Oranges'))
+
+```
+
+Observations on the left are ones which return the worst degree of responses (not well at all/ not too well).
+The more positive responses are in the grey and yellow clusters for the last 5 variables and i the clusters black and pink for the variables 3-7.
+
+
+3. Assume a situation with 10 categorical variables. Five variables are binary, three variables have three categories, and two variables have five categories.
+What is the number of free parameters for
+(a) a general categorical model that models all possible probabilities,
+```{r}
+p=10
+
+(2^5)*(3^3)*(5^2)-1
+```
+The number of free parameters is the number of possible different observations minus one.
+
+(b) a latent class mixture model with 4 mixture components?
+```{r}
+3+4*(1+1+1+1+1+2+2+2+4+4)
+```
+
+
+4. Consider the COVID data set analysed in Chapter 7 of the course slides.
+Consider Italy, Haiti, and the USA (country 79, 69, and 164). Produce residual plots, i.e., plots with the time points on the x-axis and the residuals (difference between data and fit) on the y-axis for these countries for
+(a) the fit by a B-spline basis with p = 100,
+Comment on potential model assumption violations from these plots.
+```{r}
+covid21 <- read.table("C:/Users/Utente/OneDrive/Desktop/bigData/datasets/covid2021.dat", quote="\"", comment.char="")
+#covid21[,1]
+covid21v<-as.matrix(covid21[,5:559])
+i=79 #italy
+i=69 #haiti
+i=164 #usa
+
+basis<-create.bspline.basis(c(1,555), nbasis=100)
+fd.cov<-Data2fd(1:555,y=t(as.matrix(covid21v)),basisobj=basis)
+plot(basis)
+plot(fd.cov)
+
+?plotfit.fd
+plotfit.fd(t(covid21v),1:555,fd.cov,index=79,cex.pch=0.5, residual = TRUE)
+```
+The residuals swings are not well developed around the 0.
+In correspondence of the periods day200-day300 and day320-day450 we can see a worst fit of the model and the so prediction of data is not good.
+This is shown by the high variability of the residuals on these days.
+Linearity assumption seems to be violated.
+
+
+```{r}
+plotfit.fd(t(covid21v),1:555,fd.cov,index=69,cex.pch=0.5, residual = TRUE)
+```
+Haiti has the lowest RMS residual and so it provides a better fit of the data since it is a measure of how accurately the model predicts the response.
+
+
+```{r}
+plotfit.fd(t(covid21v),1:555,fd.cov,index=164,cex.pch=0.5, residual= TRUE)
+```
+It has the worst RMS residual value so this model fit worst for the data related to USA. But it is lower than 1 so it is very good.
+the linearity assumption in not violated because the swings have the same height.
+
+The normality assumption is violated in all plots, especially for Haiti.
+The IID assumption is violated because the variance of the residuals for all countries changes.
+
+(b) the fit by a 5-dimensional principal components basis.
+```{r}
+cov.pca <- pca.fd(fd.cov, nharm = 5 )
+plot(cov.pca$harmonics) 
+plot(cov.pca$scores)
+pairs(cov.pca$scores)
+
+cumsum(cov.pca$varprop)
+
+mcovid<-mean.fd(fd.cov)
+
+cov.approx<-cov.pca$harmonics
+i <- 1
+pcacoefi <- cov.pca$harmonics$coefs %*% cov.pca$scores[i,]+mcovid$coefs
+cov.approx$coefs <- pcacoefi
+
+for (i in 2:179){
+pcacoefi <- cov.pca$harmonics$coefs %*% cov.pca$scores[i,]+mcovid$coefs
+cov.approx$coefs <- cbind(cov.approx$coefs, pcacoefi)
+}
+dimnames(cov.approx$coefs)[[2]] <- covid21[,1]
+
+plotfit.fd(t(covid21v),1:555,cov.approx,index=79,cex.pch=0.5, residual = TRUE)
+```
+Residuals are eteroschedastic and the plot is not perfect developed around a mean perfect equal to 0.
+
+```{r}
+plotfit.fd(t(covid21v),1:555,cov.approx,index=69,cex.pch=0.5, residual=TRUE)
+```
+The RMS is the lowest also in this case.
+
+```{r}
+plotfit.fd(t(covid21v),1:555,cov.approx,index=164,cex.pch=0.5, residual = TRUE)
+
+```
+The RMS is the highest and residuals have high variability.
+
+The normality and IID assumptions are all violated for all three countries. Swings are to large and far from 0.
+
+
+
+5.Representing all countries in the COVID data set by the first functional principal component scores only, run a one-way analysis of variance to test whether there is evidence that the scores from different continents have different means. Also visualise the scores so that the continents can easily be compared, and interpret plot and result (try to figure out what larger or smaller/positive or negative scores on the first principal component actually mean).
+```{r}
+cov.pca$scores[,1]
+#ncontinent <- as.numeric(as.factor(covid21$continent))
+#plot(cov.pca$scores[,1],col=ncontinent,pch=clusym[ncontinent], ylim=range(-25:60))
+
+cov.anova <- cbind(covid21, cov.pca$scores[,1])
+anova <- aov(cov.pca$scores[,1]~continent, data = cov.anova)
+summary.aov(anova)
+
+covid21["scores"]<-cov.pca$scores[,1]
+
+library(ggplot2)
+ggplot(covid21,aes(x=continent,y=scores))+ geom_boxplot(fill='darkgreen')+stat_summary(
+  geom = "point",fun = "mean",col = "black",size = 3,shape = 21,fill="orange")
+
+```
+The boxplot allows to individuate potential outliers.
+In Africa we can see more outliers than in other continent while for Australia, North America and south america there are not outliers.
+Africa has the lowest variability and the lowest median like Australia. 
+Also Australia and Central America has a quite low variance of scores.
+Asia has the largest variance within scores and the majority of them are negative.
+For these continents data are asymmetric because the medians are neare the bottom of the boxplot.
+Europe has the highest median and variance within scores similar to the one for North America and South America.
+Africa, Australia and Central America show only negative scores.
+South America ha slightly more than half the values of the scores that are positive.

@@ -1,0 +1,479 @@
+---
+title: "mockexam"
+output:
+  html_document: default
+  pdf_document: default
+date: "2023-01-06"
+---
+```{r}
+library(pdfCluster)#clustering kmeans ecc..
+library(fpc) #clusym in plot
+library(cluster)#gap, silhouette
+library(sn) #simruns for doing simulations
+library(clusterSim)#silhouette ??
+library(smacof) #multidimensional scaling
+library(mclust) #adjusted rand index, gaussian mixture/cov matrix models
+library(teigen)#t distribution
+library(mixsmsn)#skew distributions
+library(flexmix)#EM algorithm
+library(nomclust)#clustering on simple matching distance matrix
+library(RColorBrewer)#colors in heatmap
+library(fda)#functional data analysis
+library(funFEM)#mixture based on functional data
+library(scatterplot3d)
+library(prabclus)
+library(ggplot2)#boxplot
+library(robustbase)#huber estimator
+library(mixtools)#ellipses defined by covariance matrices.
+```
+
+2)
+```{r}
+tombdata <- read.table("C:/Users/Utente/OneDrive/Desktop/bigData/datasets/tombdataX00.dat", quote="\"", comment.char="", header = TRUE)
+
+row.names(tombdata)
+colnames(tombdata)
+dim(tombdata)
+tombdata<-data.frame(tombdata)
+```
+
+The data contains information on 77 tombs on ancient Egypt. The rows of the dataset are the tombs. The columns of the dataset refer to 145 different types of pottery artifacts. The first row of the dataset gives the codes for the artifact types, the first column of the dataset gives systematic names of the tombs.
+For each of the 77 tombs, the dataset states whether a certain type of artifact is 
+present in the tomb (1) 
+or not (0).
+The idea is that tombs with similar artifacts are likely to come from the same period, so the purpose of clustering here is to find clusters of tombs that are likely to have been created in about the same period of time.
+
+Produce two distance-based clusterings of the tombs. Explain why you choose the specific clustering methods and motivate all the methodological decisions you made,including your choice of a distance.
+```{r}
+dist<-dist(tombdata, method = "binary")
+multidim<-mds(dist,ndim = 2)
+plot(multidim$conf, type="p", asp=1)
+multidim$stress
+```
+I create a distance matrix created with the jaccard distance because all variables are binary and I think that the according on absence is not informative in this case. Knowing that two artefacts are not in the same tomb does not tell us from which period they come from.We are looking for the joint presence.
+
+Multidimensional scaling= dimensions reduction technique that allows us to displaying data basing distance in two dimensions. The idea is to show how data look like.
+With the multidimensional scaling here we lose the 37% of the information so maybe it is better to consider a bigger number o dimensions.
+```{r}
+mds<-mds(dist,ndim=5)
+mds$stress
+```
+With 5 dimensions considered we lose only the 18% of informations.
+
+Looking to the spread of the data a hierarchical distance based method is preferable. (kmeans results bad).
+```{r}
+single<-hclust(dist, method="single")
+asw.single<-list()
+clusk.single<-list()
+sil.single<-NA
+for (k in 2:10) {
+  asw.single[[k]]<-cutree(single,k)
+  clusk.single[[k]]<-silhouette(asw.single[[k]], dist = dist)
+  sil.single[[k]]<-summary(clusk.single[[k]])$avg.width
+}
+plot(1:10,sil.single,type="l", xlab="number of cluster", ylab="ASW signle")
+sil.single
+```
+k=2
+
+```{r}
+complete<-hclust(dist, method = "complete")
+asw.com<-list()
+clusk.com<-list()
+sil.com<-NA
+for (k in 2:10) {
+  asw.com[[k]]<-cutree(complete,k)
+  clusk.com[[k]]<-silhouette(asw.com[[k]], dist = dist)
+  sil.com[[k]]<-summary(clusk.com[[k]])$avg.width
+}
+plot(1:10,sil.com,type="l", xlab="number of cluster", ylab="ASW complete")
+sil.com
+```
+k=2
+
+```{r}
+average<-hclust(dist, method = "average")
+asw.aver<-list()
+clusk.aver<-list()
+sil.aver<-NA
+for (k in 2:10) {
+  asw.aver[[k]]<-cutree(average,k)
+  clusk.aver[[k]]<-silhouette(asw.aver[[k]], dist = dist)
+  sil.aver[[k]]<-summary(clusk.aver[[k]])$avg.width
+}
+plot(1:10,sil.aver,type="l", xlab="number of cluster", ylab="ASW average")
+sil.aver
+```
+k=2
+
+```{r}
+ward<-hclust(dist, method = "ward.D2")
+asw.ward<-list()
+clusk.ward<-list()
+sil.ward<-NA
+for (k in 2:10) {
+  asw.ward[[k]]<-cutree(ward,k)
+  clusk.ward[[k]]<-silhouette(asw.ward[[k]], dist = dist)
+  sil.ward[[k]]<-summary(clusk.ward[[k]])$avg.width
+}
+plot(1:10,sil.ward,type="l", xlab="number of cluster", ylab="ASW ward")
+sil.ward
+```
+k=8
+
+```{r}
+asw.pam<-list()
+clusk.pam<-list()
+sil.pam<-NA
+for(k in 2:10){
+  asw.pam[[k]] <- pam(dist,k)
+  clusk.pam[[k]] <- silhouette(asw.pam[[k]],dist=dist)
+  sil.pam[k] <- summary(clusk.pam[[k]],dist=dist)$avg.width
+}
+plot(1:10,sil.pam,type="l", xlab="number of cluster", ylab="pam")
+sil.pam
+```
+k=3
+
+```{r}
+ #######
+tsingle <- tave <- tcom <- tward <- tpam <- list()
+ssil <- asil <- csil <- wsil <- psil <- list()
+sasw <- aasw <- casw <- wasw <- pasw <- NA
+nc <- 2:10
+for(k in nc){
+  print(k)
+  tsingle[[k]] <- cutree(single,k)
+  tave[[k]] <- cutree(average,k)
+  tcom[[k]] <- cutree(complete,k)
+  tward[[k]] <- cutree(ward,k)
+  tpam[[k]] <- pam(dist,k)
+  
+  ssil[[k]] <- silhouette(tsingle[[k]],dist=dist)
+  asil[[k]] <- silhouette(tave[[k]],dist=dist)
+  csil[[k]] <- silhouette(tcom[[k]],dist=dist)
+  wsil[[k]] <- silhouette(tward[[k]],dist=dist)
+  psil[[k]] <- silhouette(tpam[[k]],dist=dist)
+  
+  sasw[k] <- summary(ssil[[k]],dist=dist)$avg.width
+  aasw[k] <- summary(asil[[k]],dist=dist)$avg.width
+  casw[k] <- summary(csil[[k]],dist=dist)$avg.width
+  wasw[k] <- summary(wsil[[k]],dist=dist)$avg.width
+  pasw[k] <- summary(psil[[k]],dist=dist)$avg.width
+}
+
+# Ko optimal number of clusters for each methods according to the ASW 
+which.max(sasw) # [1] 2
+which.max(aasw) # [1] 2
+which.max(casw) # [1] 2
+which.max(wasw) # [1] 8 
+which.max(pasw) # [1] 3
+
+# Correspondent ASW val
+max(sasw,na.rm=TRUE) # 0.04971287
+max(aasw,na.rm=TRUE) # 0.04971287
+max(casw,na.rm=TRUE) # 0.03424026
+max(wasw,na.rm=TRUE) # 0.05884179 # max
+max(pasw,na.rm=TRUE) # 0.05634166
+
+# Summary plot of all the ASW curves 
+plot(1:10,sasw,ylim=c(0,0.3),type="l",xlab="Number of clusters",ylab="ASW")
+points(1:10,aasw,ylim=c(0,0.3),type="l",col=2,lty=2)
+points(1:10,casw,ylim=c(0,0.3),type="l",col=3,lty=3)
+points(1:10,wasw,ylim=c(0,0.3),type="l",col=4,lty=4)
+points(1:10,pasw,ylim=c(0,0.3),type="l",col=5,lty=5)
+legend(8,0.3,legend=c("single","average","complete","ward","pam"),lty=1:5,col=1:5)
+
+```
+
+```{r}
+par(mfrow=c(2,2))
+plot(as.dendrogram(single), main="single distance", xlab = "n.clusters", ylab="artefact")
+plot(as.dendrogram(complete), main="complete distance", xlab = "n.clusters", ylab="artefact")
+plot(as.dendrogram(average), main="average distance", xlab = "n.clusters", ylab="artefact")
+plot(as.dendrogram(ward), main="ward distance", xlab = "n.clusters", ylab="artefact")
+```
+From dendrograms there are an evidence on the fact that the ward method provides the better clustering.
+
+
+```{r}
+plot(clusk.ward[[8]], main="ward's method")
+```
+Look to the values on the right, the higher the best units are classified in the cluster.
+A negative values does not mean that the units are misclassified but here we have done a bad classification.
+With ward method the best silhouette index referes to k=8 clusters.
+
+```{r}
+plot(clusk.pam[[3]], main="pam method")
+```
+The silhouette index for the 3 cluster is very small, in the ward plot the bad values is for cluster 5.
+
+#######
+```{r}
+single.cut<-cutree(single, k=2)
+complete.cut<-cutree(complete, k=2)
+table(complete.cut)
+average.cut<-cutree(average, k=2)
+plot(average.cut)
+table(average.cut)
+```
+
+```{r}
+ward.cut<-cutree(ward, k=8)
+table(ward.cut)
+```
+
+```{r}
+#plot(multidim$conf,pch=clusym[clusk.ward[[8]]],col=clusk.ward[[8]], main="ward, 8 clusters")
+
+# By looking the overall ASW plot i decide to take 9 as optimal number of clusters
+# for PAM (seems that for k=9 we a sort of local maximum for the ASW)
+#plot(multidim$conf,pch=clusym[pasw[[3]]$clustering],col=pasw[[3]]$clustering, main="pam, 3 clusters")
+```
+
+```{r}
+adjustedRandIndex(ward.cut,asw.pam[[3]]$clustering)
+adjustedRandIndex(tward[[8]],tpam[[3]]$clustering)
+```
+The ARI value is bad and that means that the two clustering are not similar.
+#0.2365553
+
+Produce a visualisation of each clustering.
+```{r}
+plot(multidim$conf,col=ward.cut,
+     pch=clusym[ward.cut],
+     asp=1, main= "Ward 2 dim, 8 group")
+plot(mds$conf,col=ward.cut,
+     pch=clusym[ward.cut],
+     asp=1, main= "Ward 5 dim, 8 group")
+
+plot(multidim$conf,pch=clusym[tpam[[3]]$clustering],
+     col=tpam[[3]]$clustering,
+     main="pam 2 dim, 3 clusters")   #tpam= asw.pam
+plot(mds$conf,pch=clusym[tpam[[3]]$clustering],
+     col=tpam[[3]]$clustering,
+     main="pam 5 dim, 3 clusters")
+```
+
+####
+```{r}
+sk<-numeric(0)
+kcluster<-list()
+for (k in 1:10) {
+  kcluster[[k]]<-kmeans(tombdata, k, nstart = 100)
+  sk[k]<-kcluster[[k]]$tot.withinss
+}
+plot(1:10,sk,xlab="k",ylab="sk",type="l")
+
+
+set.seed(123456)
+gp<-clusGap(tombdata,kmeans,K.max = 10, B=100, d.power = 2,spaceH0 = "scaledPCA", nstart=100)
+plot(gp)
+
+
+gapnc <- function(data,FUNcluster=kmeans,
+                        K.max=10, B = 100, d.power = 2,
+                        spaceH0 ="scaledPCA",
+                        method ="globalSEmax", SE.factor = 2,...){
+  gap1 <- clusGap(data,kmeans,K.max, B, d.power,spaceH0,...)
+  nc <- maxSE(gap1$Tab[,3],gap1$Tab[,4],method, SE.factor)
+  kmopt <- kmeans(data,nc,...)
+  out <- list()
+  out$gapout <- gap1
+  out$nc <- nc
+  out$kmopt <- kmopt
+  out
+}
+gpnc<-gapnc(tombdata)
+gpnc$nc
+```
+All these mehtods do not provide informative results so i will use k=4 as i have found previous.
+
+```{r}
+kmeans<-kmeans(tombdata, centers =4, nstart = 100)
+#plot(tombdata, col=kmeans$cluster, pch=clusym[kmeans$cluster]) #?
+```
+
+```{r}
+adjustedRandIndex(kmeans$cluster, ward.cut)
+```
+The ARI value is bad and that means that the two clustering are not similar.
+
+Compare the clusterings and discuss to what extent each of them may be helpful for tomb dating so that the discussion can be understood by an archaeologist.
+
+????
+
+
+
+
+4)
+```{r}
+unicef <- read.csv("C:/Users/Utente/OneDrive/Desktop/bigData/datasets/unicef97.dat", sep="", header = TRUE)
+str(unicef)
+pairs(unicef,pch=rownames(unicef))
+
+```
+
+(a) Which of the regression estimators do you find most trustworthy here and why (you can comment on known characteristics of the methods but you are also expected to use the data analysis for arguing your decision)?
+```{r}
+#linear model
+lm<-lm(Child.Mortality~Literacy.Fem+Literacy.Ad+Drinking.Water+Polio.Vacc+Tetanus.Vacc.Preg+Urban.Pop+Foreign.Aid, data=unicef)
+summary(lm)
+par(mfrow=c(2,2))
+plot(lm)
+```
+All but one coefficients are negative.
+plots:
+1.relation between residuals and fitted values are wel approximated by linearity
+2.overall residuals can be well approximated by normal distribution since the most of the point are aligned. But there are some problematic units
+3.there is a heteroschedasticity problem, a lower one can be tolerated.
+4.not all outliers and leverage points are influential in linear regression. only saoTP is a bad leverage point that lies outside the cook's distances.
+
+The least squares estimator is the classical regression, it gives us the highest asymptotic efficiency but it is very sensitive to the outliers.
+
+The basic idea underlying the robust linear model is that some of the data are distributed conditionally normal and remaining part composed by outliers, comes from some arbitrary distributions.
+with robustness weight, robust method does not give high influence. Hence here some observation are weighted.
+The robust estimation theory said that we try to split the outliers from the observations in order to make estimation without giving importance to outliers.
+```{r}
+#MM estimator
+lmrob<-lmrob(Child.Mortality~Literacy.Fem+Literacy.Ad+Drinking.Water+Polio.Vacc+Tetanus.Vacc.Preg+Urban.Pop+Foreign.Aid, data=unicef)
+summary(lmrob)
+par(mfrow=c(2,2))
+plot(lmrob)
+```
+Adjusted R square is better with MM estimator so it can be better than the previous of least squares. R square measures how closer data are to the fitted regression line. It is better because the robust regression deal automatically with normality and outliers.
+  3 observations c(4,80,91) are outliers with |weight| = 0
+Both estimators show that saoTP is an influential bad leverage.
+
+The MM estimator combine automatically high efficiency and high Breakdown point ~0.5 that means a high tolerance with respect to outliers.
+The idea is to combine the efficiency that comes from M and the robustness from S.
+
+```{r}
+#S-estimator
+lmrob$init.S
+#lmrob(Child.Mortality~Literacy.Fem+Literacy.Ad+Drinking.Water+Polio.Vacc+Tetanus.Vacc.Preg+Urban.Pop+Foreign.Aid, data=unicef, method= "S")
+```
+The S estimator has an high breakdown point ~0.5 but a low asymptotic efficiency =24%.
+It is used to initialize the MM algorithm.
+
+
+We can exclude the lm estimator bacause it is so sensible and there are violation assumptions.
+```{r}
+#robustness weight
+plot(1:121,lmrob$rweights,xlab="Observation number",ylab="Weight", main="MM-estimator, robustness weights",type="n")
+text(1:121,lmrob$rweights,rownames(unicef),cex=0.7)
+```
+From this plot we can state waht are point to which the function has assigned 0 weight, so the outliers.
+It has the highest adj Rsquare so we prefer it.
+
+```{r}
+plot(1:121,lmrob$init.S$rweights,xlab="Observation number",ylab="Weight",
+main="S-estimator, robustness weights",type="n")
+text(1:121,lmrob$init.S$rweights,rownames(unicef),cex=0.7)
+```
+The S estimator consider as outliers a lot of points and this implies a big loss of information.
+```{r}
+# Residuals vs. fitted
+plot(lmrob$fitted,lmrob$residuals,xlab="Fitted values",ylab="Residuals",
+main="MM-estimator, residuals vs. fitted")
+plot(lmrob$init.S$fitted,lmrob$init.S$residuals,xlab="Fitted values",
+ylab="Residuals",main="S-estimator, residuals vs. fitted")
+```
+
+
+(b) Which of the covariance matrix estimators do you find most trustworthy here and why (you can comment on known characteristics of the methods but you are also expected to use the data analysis for arguing your decision)?
+```{r}
+#minimum covariance determinant estimator
+cd<-cov(unicef)
+mcd<-covMcd(unicef)
+mcd75<-covMcd(unicef, alpha = 0.75)
+```
+The MCD method looks for the h observations whose classicl covariance matrix has the lowest determinant.
+The raw MCD estimate of location is the average of h multiplied by a consistency factor, to make it consistent at the normal model and unbiased at small samples.
+h=consistency parameter, it identifies more outlier than LM, where they are masked by the biggest outliers and treated as normal points.
+
+```{r}
+# Squared robust Mahalanobis distances
+plot(1:121,sqrt(mcd$mah),type="n",xlab="Observation",
+ylab="Squared robust Mahalanobis distance",main="MCD with alpha=0.5")
+text(1:121,sqrt(mcd$mah),rownames(unicef),cex=0.7)
+abline(sqrt(qchisq(0.99,8)),0,col=2)
+
+plot(1:121,sqrt(mcd75$mah),type="n",xlab="Observation",
+ylab="Squared robust Mahalanobis distance",main="MCD with alpha=0.75")
+text(1:121,sqrt(mcd75$mah),rownames(unicef),cex=0.7)
+abline(sqrt(qchisq(0.99,8)),0,col=2)
+```
+Under normal distributions it preferable to use squared mahalanobis distances to identify outliers.
+Fom the plots we can note which are points with a bigger distance from the abline.
+
+```{r}
+#compare with mahalanobis distances based on mean and sample covariance matrix
+plot(sqrt(mahalanobis(unicef,colMeans(unicef),cd)),sqrt(mcd$mah),
+type="n",xlab="Squared standard Mahalanobis distance",
+ylab="Squared robust Mahalanobis distance",main="MCD with alpha=0.5")
+text(sqrt(mahalanobis(unicef,colMeans(unicef),cd)),sqrt(mcd$mah),
+rownames(unicef),cex=0.7)
+abline(sqrt(qchisq(0.99,8)),0,col=2)
+abline(v=sqrt(qchisq(0.99,8)),col=2)
+
+
+plot(sqrt(mahalanobis(unicef,colMeans(unicef),cd)),sqrt(mcd75$mah),
+type="n",xlab="Squared standard Mahalanobis distance",
+ylab="Squared robust Mahalanobis distance",main="MCD with alpha=0.75")
+text(sqrt(mahalanobis(unicef,colMeans(unicef),cd)),sqrt(mcd75$mah),
+rownames(unicef),cex=0.7)
+abline(sqrt(qchisq(0.99,8)),0,col=2)
+abline(v=sqrt(qchisq(0.99,8)),col=2)
+
+pairs(unicef) #miss colors
+```
+These two plots provide almost identical results and from these we can interpret outliers with respect to two type of distances.
+
+
+```{r}
+v1<-2
+v2<-4
+plot(unicef[,c(v1,v2)])
+ellipse(colMeans(unicef[,c(v1,v2)]),cd[c(v1,v2),c(v1,v2)],col=2, alpha=0.01) #if data are normally distributed we expect 99% of units is inside the ellipse.
+ellipse(mcd$center[c(v1,v2)],mcd$cov[c(v1,v1),c(v1,v2)],col=2, alpha=0.01)
+ellipse(mcd75$center[c(v1,v2)],mcd75$cov[c(v1,v1),c(v1,v2)],col=2, alpha=0.01)
+
+cor(unicef[,v1], unicef[,v2])
+#robust correlation for cov entries
+mcd$cov[v1,v2]/sqrt(mcd$cov[v1,v1]*mcd$cov[v2,v2])
+```
+Less correlated variables.
+
+conclusion:
+maybe it will be better to exclude classical covariance estimator because of the high presence of outliers. From plots we can see that alpha=0.05 MCD treats as outliers observations with so high squared robust mahalanobis distance.
+We are looking for the best trade of between asymptotic efficiency and robustness, so i choose the MCD with alpha=0.75.
+
+
+
+(c) Which of the countries do you think are outliers in the sense that they seem to behave substantially different from the others (you can use the abbreviated country names as in the plots), based on which plots or results?
+```{r}
+which.min(lmrob$residuals)
+which.max(unicef$Child.Mortality)
+which.max(lmrob$residuals)
+which.min(lmrob$rweights) #0
+```
+SaoTp, Niger, Angola, Mosam, Ruand, Samb,Nic, Haiti.
+
+(d) For outlier identification, two different kinds of analyses were run here, namely (i) regression (least squares, MM, and S), and (ii) covariance matrix estimation based on all variables (standard, and MCD with alpha= 0:5 and alpha= 0:75). In what sense are outliers identified by regression different from outliers identified from covariance
+matrix estimation?
+
+In the case (i)
+outliers are identified by the distance of the point from the regression line, it has an high residual value.
+moreover in this case we can recognize outliers and bad leverage points that violate the linear model assumptions.
+Here we search outliers to reweigh observations and underweigh outliers.
+in the case (ii)
+we only identify outliers with respect to an estimation (not to a model) basing over decisions on the robust distances between observations and multivariate robust location estimate (obtained from a robust estimate covariance matrix).
+Here we cannot distinguish between outliers and leverage points, we are only interested on not taking into account them in estimation of location and covariance matrix.
+
+
+
+(e) A social scientist suggests that the observation \SaoTP" should be removed, because its level of foreign aid makes it essentially different from all other observations, and it should therefore not be used in the same analysis. What do you think of this suggestion? Which of the three regression estimators would in your opinion be most affected by such a decision?
+
+Remove all the outliers will provide a big loss of influence because of the big change that we can note on outputs. Maybe to remove only saoTP may be correct, to not risk a big loss of information. 
+Also by using robust regression estimators we can deal with outliers problems. Obviously we can not use the LM estimator that is too much sensitive.

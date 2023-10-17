@@ -1,0 +1,355 @@
+---
+title: "homework1"
+output: html_document
+date: "2023-01-04"
+---
+
+1)Run K-means for the Olive Oil data with K = 3 and K = 9 with scaled and unscaled data. Assuming that the macro-areas are the “true” clusters for K = 3, use table to compare the macro-areas with the clustering, and compare the quality
+of the two clusterings with K = 3.
+Do the same for the regions and the K = 9-clusterings.
+```{r}
+library(pdfCluster)
+
+data("oliveoil")
+olive<-oliveoil[,3:10] #consider only the numerical variables in order to run the kmeans
+#pairs(olivescal, cex=0.3, col=oliveoil[,1])
+olivescal<-scale(olive)
+
+library(fpc)
+#scaled dataset and k=3
+set.seed(665544)
+kolive.3<-kmeans(olivescal,centers = 3, nstart=100)
+plot(olivescal, col=kolive.3$cluster, pch=clusym[kolive.3$cluster])
+points(kolive.3$centers,pch="M", cex=1, col=4)
+
+pairs(olivescal, cex=0.3, col=kolive.3$cluster, pch=clusym[kolive.3$cluster])
+
+str(kolive.3)
+```
+
+
+```{r}
+#scaled dataset and k=9
+set.seed(665544)
+kolive.9<-kmeans(olivescal,centers = 9, nstart=100)
+plot(olivescal, col=kolive.9$cluster, pch=clusym[kolive.9$cluster])
+points(kolive.9$centers,pch="M", cex=1, col=4)
+
+pairs(olivescal, cex=0.3, col=kolive.9$cluster, pch=clusym[kolive.9$cluster])
+str(kolive.9)
+
+```
+
+
+```{r}
+#unscaled dataset and k=3
+set.seed(665544)
+olive.3<-kmeans(olive,centers = 3, nstart=100)
+plot(olive, col=olive.3$cluster, pch=clusym[olive.3$cluster])
+points(olive.3$centers,pch="M", cex=1, col=4)
+
+```
+
+```{r}
+#unscaled dataset and k=9
+set.seed(665544)
+olive.9<-kmeans(olive,centers = 9, nstart=100)
+plot(olive, col=olive.9$cluster, pch=clusym[olive.9$cluster])
+points(olive.9$centers,pch="M", cex=1, col=4)
+
+```
+
+With the function table we can see where a specimen of olive oil is classified based on the value of the variables(chemical
+measurements on the acid components)
+
+```{r}
+table(kolive.3$cluster,oliveoil$macro.area)
+```
+
+for the first cluster we can find 2 specimens of olive oil in the macro-area south anche 121 in the centre.north
+
+```{r}
+table(olive.3$cluster,oliveoil$macro.area)
+```
+
+for the first cluster we have 42 specimens in south and 134 in centre.north
+```{r}
+table(kolive.9$cluster,oliveoil$region)
+```
+
+for the fisrt cluster we can find 1 specimens in region calabria,33 in liguria.east and 1 in umbria
+
+```{r}
+table(olive.9$cluster,oliveoil$region)
+```
+
+for the first cluster we have 2 specimens in Apulia.north, 5 in sicily and 39 in liguria.west
+we can't compare k=3 and k=9 since the are relative different things: in the first we see from which macro.area the oil com
+es, and in the second from which region.
+
+```{r}
+#for the scaled olive with k=3
+str(kolive.3)
+```
+#tot.withinss: num 2320
+#totss : num 4568
+
+```{r}
+#for unscaled olive with k=3
+str(olive.3)
+
+```
+#tot.withinss: num 30493566
+#totss : num 146755255
+
+```{r}
+#for the scaled olive with k=9
+str(kolive.9)
+```
+#tot.withinss: num 1020
+#totss : num 4568
+
+```{r}
+#for unscaled olive with k=9
+str(olive.9)
+
+```
+
+#tot.withinss: num 9336608
+#totss : num 146755255
+we have to use the scaled datasets because their total within sum of square are less than in the unscaled datasets, and we know that the more less is the tot.withinss, the better is the model so the clustering is more precise in the first case.
+
+
+2)
+```{r}
+library(pdfCluster)
+data("oliveoil")
+olive<-oliveoil[,3:10]
+
+#scaled dataset
+library(fpc)
+olivescal<-scale(olive)
+olivescal.mat<-data.matrix(olivescal)
+set.seed(665544)
+kolive.3<-kmeans(olivescal.mat,centers = 3, nstart=100)
+str(kolive.3)
+
+```
+
+```{r}
+q=12345
+olivescal1<-olivescal.mat*q
+set.seed(665544)
+kolive.3.1<-kmeans(olivescal1,centers = 3, nstart=100)
+str(kolive.3.1)
+```
+
+```{r}
+kolive.3$centers
+kolive.3.1$centers
+
+table(kolive.3$cluster)
+table(kolive.3.1$cluster)
+```
+
+```{r}
+#unscaled dataset
+olive.mat<-data.matrix(olive)
+olive1<-olive.mat*q
+set.seed(665544)
+olive.3<-kmeans(olive.mat,centers = 3, nstart=100)
+str(olive.9)
+```
+
+```{r}
+set.seed(665544)
+olive.3.1<-kmeans(olive1,centers = 3, nstart=100)
+str(olive.3.1)
+```
+
+```{r}
+olive.3$centers
+olive.3.1$centers
+table(olive.3$cluster)
+table(olive.3.1$cluster)
+
+```
+by multiplying the dataset matrix by a constant we obtain the same clustering of the original one (we can see it from by the table statement), but different center. 
+This holds both for the scaled and for the unscaled dataset.
+In fact in both datasets, the centers differs for the constant q for which I multiplied the original dataset.
+
+
+3)Visualise the data, produce a clustering of this data set that looks reasonable to you,
+and explain the reasons why you have chosen this and you think it is reasonable.
+You can use other clustering methods that you know other than K-means, but if
+you use K-means only, that’s fine, too.
+```{r}
+Boston <- read.csv("C:/Users/Utente/OneDrive/Desktop/bigData/datasets/Boston.dat", sep="")
+boston<-data.matrix(Boston)
+boston1<-boston[,-c(4)]
+#find the good k
+sk<-numeric(0)
+kclusterings<-list()
+for (k in 1:10) {
+ kclusterings[[k]]<-kmeans(boston1,k,nstart=100)
+ sk[k]<-kclusterings[[k]]$tot.withinss
+}
+plot(1:10,sk,xlab="k", ylab="S_k",type="l")
+```
+
+```{r}
+kclusterings[[2]]$tot.withinss
+#5764962
+
+kclusterings[[3]]$tot.withinss
+#3068467
+
+kclusterings[[4]]$tot.withinss
+#1814405
+
+kclusterings[[5]]$tot.withinss
+#1475517
+```
+
+The last great difference of tot.withinss is between k=3 and k=4 while the improvement between k=4 and k=5 is negligible .
+So the best solution is to take the number of centres k=4.
+
+```{r}
+kboston.4<-kmeans(boston1,centers = 4, nstart=100)
+plot(boston1, col=kboston.4$cluster, pch=clusym[kboston.4$cluster])
+points(kboston.4$centers,pch="M", cex=1, col=4)
+
+pairs(boston1, cex=0.3, col=kboston.4$cluster, pch=clusym[kboston.4$cluster])
+```
+
+```{r}
+#Elbow method
+#elbow<-fviz_nbclust(boston1, kmeans, method = "wss") +
+ #geom_vline(xintercept = 4, linetype = 2) +
+ #labs(subtitle = "Elbow method") 
+#with the plot resulting from the application of the elbow method shows that the optimal number of cluster is 4.
+```
+
+
+```{r}
+#Gap Method
+library(cluster)
+set.seed(12345)
+gap<- clusGap(boston1,kmeans,K.max=10,B=100,d.power=2,spaceH0="scaledPCA",nstart=100)
+
+print(gap,method="globalSEmax",SE.factor=2)
+plot(gap)
+```
+with the gap method results that the optimal number of clusters is 4 as is shown by applying the elbow method.
+the improvement that we can see after k=4 is negligible.
+
+
+###
+we can cluster the units basing the clustering method on the variables that result form the application of principal components.
+In this way we retain only the principal components that explain the biggest part of the variance of the dataset. 
+```{r}
+prolive<-princomp(boston1)
+summary(prolive)
+```
+
+
+(4)++” is the name of a method to initialise the k-means algorithm that has been proposed in the literature (for really big datasets it may be problematic to run Lloyd’s or similar algorithms a lot of times from random starting points, and having just one well picked starting point will be much faster and hopefully not much worse or even better). Do some research on the internet, find out and explain how this works. It can be run by
+the following function kmpp, where X is a data matrix and k is the number of clusters. The output is of the same format as kmeans. Run this on one or more of the example data sets and run kmeans as well, both with nstart=1 and nstart=100, and compare the achieved values of the objectivefunction (tot.withinss-component of the output).
+Both the Kmeans and the Kmeans++ start by allocating cluster centers randomly. The k-means++ is an algorithm for choosing the initial values for the k-means algorithm: the first looks for the better solution after this initial step, while the ++ searches for other centers given the first one.
+Kmenas++ speeds up the convergence, and theorically it provides better results. The k-means aim is to find cluster centers that minimize the sum of squared distances from each data point in a cluster to its cluster center. It is used widely and often finds good solutions quickly but it is sensitive to the initialization of the centroids so if we start with very bad centroids, we can quickly arrive to a poor solution. K-means ++ overcomes this
+obstacles, due to its ability to do a smart initialization of the centroids. It specifies an initialization procedure for the cluster centres before applying the kmeans optimizaion algorithm.
+The steps involved: 1.select at random the first centroid from the data points. 
+2.compute for each data point its distance from the nearest centroid chosen previously. 3.select the next centroid from the data points such that its probability to be chosen as centroid is directly proportional to its distance from the nearest centroid chosen before. 4.Repeat steps 2 and 3 until k centroids have been sampled 5.apply the kmeans algorithm.
+
+```{r}
+library(pracma)
+Boston <- read.csv("C:/Users/Utente/OneDrive/Desktop/LM/bigData/Boston.dat", sep="")
+boston1<-data.matrix(Boston)
+set.seed(665544)
+kboston.100<-kmeans(boston1,centers = 3, nstart=100)
+#plot(boston1, col=kboston.100$cluster, pch=clusym[kboston.100$cluster])
+#points(kboston.100$centers,pch="M", cex=1, col=4)
+#pairs(boston1, cex=0.3, col=kboston.100$cluster, pch=clusym[kboston.100$cluster])
+str(kboston.100)
+```
+#tot.withinss: num 3068499
+
+```{r}
+set.seed(665544)
+kboston.1<-kmeans(boston1,centers = 3, nstart=1)
+#plot(boston1, col=kboston.1$cluster, pch=clusym[kboston.1$cluster])
+#points(kboston.1$centers,pch="M", cex=1, col=4)
+#pairs(boston1, cex=0.3, col=kboston.1$cluster, pch=clusym[kboston.1$cluster])
+str(kboston.1)
+```
+#tot.withinss: num 4460944
+
+```{r}
+kmpp <- function(X, k) {
+ n <- nrow(X)
+ C <- numeric(k)
+ C[1] <- sample(1:n, 1)
+ for (i in 2:k) {
+ dm <- distmat(X, X[C, ])
+ pr <- apply(dm, 1, min); pr[C] <- 0
+ C[i] <- sample(1:n, 1, prob = pr)
+ }
+ kmeans(X, X[C, ])
+}
+set.seed(665544)
+kboston.pp<-kmpp(boston1, 3)
+str(kboston.pp)
+```
+tot.withinss: num 4460944
+
+In terms of tot.withinss the best solution is the kmeans with the number of random initialization for starting the algorithm equal to 100.
+Known the kmeans iterative nature and that the initialization of centroids at the start of the algorithm is random, different initializations may lead to different clusters since kmeans algorithm tends to find only a local optimum, not the globalas the kmean++ tends to do.
+```{r}
+kboston.1$centers
+kboston.100$centers
+kboston.pp$centers
+
+```
+
+```{r}
+olive.mat<-data.matrix(olive)
+set.seed(665544)
+olive.100<-kmeans(olive.mat,centers = 3, nstart=100)
+#plot(olive.mat, col=olive.100$cluster, pch=clusym[olive.100$cluster])
+#points(olive.100$centers,pch="M", cex=1, col=4)
+str(olive.100)
+```
+#tot.withinss: num 9336608
+
+```{r}
+set.seed(665544)
+olive.1<-kmeans(olive.mat,centers = 3, nstart=1)
+#plot(olive.mat, col=olive.1$cluster, pch=clusym[olive.1$cluster])
+#points(olive.1$centers,pch="M", cex=1, col=4)
+str(olive.1)
+```
+tot.withinss: num 9339261
+
+```{r}
+set.seed(665544)
+olive.pp<-kmpp(olive.mat, 3)
+str(olive.pp)
+olive.pp$tot.withinss
+```
+tot.withinss: 9637187
+
+in terms of tot.withiniss both the kmeans are better than the kmeans++, and with nstart=1 the clustering is the best.
+
+```{r}
+olive.1$centers
+olive.100$centers
+olive.pp$centers
+```
+
+```{r}
+olive.1$cluster
+olive.100$cluster
+olive.pp$cluster
+```
+
+

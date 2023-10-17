@@ -1,0 +1,230 @@
+---
+title: "homework5"
+output:
+  pdf_document: default
+  html_document: default
+date: "2022-11-15"
+---
+
+
+1) Find a good clustering, i.e., one of which you think that it captures in the best
+possible manner a really meaningful grouping. Try out at least two clusterings,
+of which at least one is based on a Gaussian mixture, and at least one is from a
+different approach.
+```{r}
+glass <- read.csv("C:/Users/Utente/OneDrive/Desktop/bigData/glass.dat", sep="")
+data <- as.matrix(glass)
+
+library(fpc)
+library(smacof)
+library(cluster)
+library(pdfCluster)
+```
+
+Clustering methods with k-means.
+```{r}
+set.seed(1234)
+glass.k <- clusGap(data,kmeans,K.max=15,B=100,d.power=2,spaceH0="scaledPCA",nstart=100)
+print(glass.k,method="globalSEmax",SE.factor=2)
+plot(glass.k)
+
+cluster.k<-kmeans(data, centers = 13, nstart = 100)
+str(cluster.k)
+pairs(data,col=cluster.k$cluster,pch=clusym[cluster.k$cluster])
+
+```
+According to the gap results the best number of clusters is 13.
+.The refractive index is almost the same in all clusters.
+.The highest concentration of Sodium can be seen in the cluster 4 while the lowest is in the number 12.
+.The magnesium is totally absent in the clusters number 4,8,10,12.
+.Alluminium takes similar values in all clusters.
+.The silicon in high very high and takes the maximum value in the fourth cluster and the minimum in the 12.
+.The potassio views a very high value with respect to the others in the eigth cluster and it is very low or absent in the ninth and fourth.
+.calcium is high in the cluster 10 and low in the 2,4,8.
+.the barium is totally absent in clusters 4,7,8,10,11,13 and it takes higher value with respect to the others in the cluster 12.
+.The Iron is absent in clusters 2,4,8,13.
+We can say that  the cluster number 12 take higher values for the presence of a lot of elements while the 4 is characterized for the big majority by Sodium, Silicon, and calcium.
+
+
+Another well value to take as number of cluster is 7 and we can see it in the plot.
+```{r}
+cluster.k7<-kmeans(data, centers = 7, nstart = 100)
+str(cluster.k7)
+pairs(data,col=cluster.k7$cluster,pch=clusym[cluster.k7$cluster])
+
+```
+
+
+Hierarchical method. 
+```{r}
+data.dist<-dist(data, method = "euclidean")
+
+single<-hclust(data.dist,method = "single") 
+plot(single)
+
+complete<-hclust(data.dist,method = "complete") 
+plot(complete)
+
+average<-hclust(data.dist,method = "average")
+plot(average)
+```
+
+The complete method seems to be the best because it does not create too much clusters with a single unit and it can end up with homogeneous cluster within and heterogeneous between.
+
+```{r}
+pasw<- NA
+pclusk <- list()
+psil<- list()
+for (k in 2:15){
+  pclusk[[k]] <- cutree(complete,k)
+  psil[[k]] <- silhouette(pclusk[[k]],dist=data.dist)
+  pasw[k] <- summary(psil[[k]])$avg.width
+}
+plot(1:15,pasw,type="l",xlab="Number of clusters",ylab="ASW")
+pasw
+which.max(pasw) 
+
+```
+
+The highest value for the silhouette index corresponds to k=2 but k=6 is high and it can be considered good.
+[1]        NA 0.5709892 0.5426460 0.5438598 0.5701057 0.5703585 0.5677699
+ 
+```{r}
+complete.cut<-cutree(complete,6) 
+plot(complete.cut)
+mds.complete<-mds(data.dist)
+plot(mds.complete$conf, col=complete.cut, pch=clusym[complete.cut],asp=1, main= "Complete Method")
+
+plot(data, col=complete.cut,pch = clusym[complete.cut])
+pairs(data, col=complete.cut,pch = clusym[complete.cut])
+
+```
+
+
+
+Gaussian mixture model
+```{r}
+library(mclust)
+data.mix<-Mclust(data, G = 1:15)
+data.mix$G 
+
+data.mix$classification
+plot(data.mix$classification)
+
+data.mix$BIC
+summary(data.mix$BIC)
+
+```
+The Gaussian mixture model method shows that the best number of clusters is 4.
+All of them are of the type VEV and that means that they are ellipsoidal with equal shape and different volume and orientation.
+
+From the classification output we can see that the first and the second clusters contain a lot of units while the others no. Specially the third group is characterized by very few units,
+
+From the BIC output we can see that the first three best model are both VEV and that the fourth is the best.
+
+
+Compare the clusterings and comment on how meaningful and useful you think
+they are. Select one clustering that you prefer. Discuss in particular whether the
+Gaussian mixture is a good method for these data in your view, and what might be
+potential problems with it.
+Produce at least one visualisation each for at least two clusterings.
+Interpret the clusters of the chosen clustering (you can use all given variables and
+your visualisations).
+
+```{r}
+adjustedRandIndex(data.mix$classification,cluster.k$cluster)
+adjustedRandIndex(data.mix$classification,complete.cut)
+adjustedRandIndex(cluster.k$cluster,complete.cut)
+
+``` 
+All ARI values are very low and so very bad. The higher is the one obtained by comparing the clustering derived by the kmeans method and the one given by the hierarchical complete method. This means that they provide a similar clustering with respect to the mixture model criterion.
+
+The kmeans method define the best k = 13 but from the plot we can see that 7 is a good value. The complete method shows k=6 so in this case they are similar.
+While the mixture model detects only 4 clusters.
+The mixture model method does not provides a good clustering for this dataset because it starts from a gaussianity assumption and thanks to the plot we can see that data are not normal distributed since they not assume a spherical form.
+
+
+
+Comment on other aspects of the data set that you find out as far as you think they
+could be relevant.
+```{r}
+pairs(data)
+View(data)
+
+plot(colMeans(data))
+pairs(var(data))
+
+```
+All variables seem to have very small variances and all variables' means are similar excepted for the sodium
+
+
+(3)
+(a) Summarize in your own words what the DBSCAN method does.
+
+The DBSCAN is a clustering algorithm based on the density of clusters in order to discover clusters of arbitrary shape and detect ouliers.
+DBSCAN is efficient even for large spatial datasets.
+The main idea is that a point belongs to a cluster if it is quite near to a lot of points of this cluster.
+The key parameters are eps that specifies the neighborhoods, and minPts so the minimum number of data points to define a cluster.
+From these the points can be classified in three different categories:
+core points, if there are at least minPts number of points in its surrounding area defined by a radius; border points that are reachable from a core point and there are less than minPts points; outliers if they are not reachable from any core points.
+Both minPts and eps are defined and a starting point is selected from its surrounding area. If there are at least minPts point in the surrounding this point is assigned as core point, otherwise as outlier.
+Then we can choose a random point among points that have not been considered before and repeat until all points have been considered.
+DBSCAN then allows us to separate high density cluster and low-density ones.
+
+
+
+(b) What are the advantages, according to the authors, of their DBSCAN method
+compared with other clustering methods, particularly those that you already
+know? Do you think that the authors' arguments are convincing?
+
+The DBSCAN method is more valid in the theory than in the practice, it works well for large spatial datasets but only for no more than 3 dimensions.
+Its biggest advantage is that it does not consider the outliers while in other methods they affect the composition of the clusters.
+It also provides good clustering when the clusters have strange forms.
+Here are not necessary that all requirement for other clustering methods, only minPts and eps as input parameters is required but a good value for eps is difficoult to find out when clusters are different in terms of density
+Hierarchical and partitioning methods work well with normal distribution and points disposed in a elliptical or spherical forms.
+Partitioning method requires the value k (number of clusters) in input. 
+Hierarchical does not need it but a termination condition to stop the algorithm is needed as well.
+The paper explains the method in detail and it seems to be very powerful.
+The property to be uncontaminated by the outliers leads to obtain important results. Also is very useful to have a method that can bypass problems related to the building of classical methods.
+
+
+
+(c) Find out how to run DBSCAN in R and apply it to the Glass data from
+question 1 (you may also try it out on other datasets). You will need to make
+some decisions (and/or experiments) about tuning parameters. Comment on
+the results.
+
+```{r}
+library(dbscan)
+
+set.seed(1234)
+eps <- seq(1,2,0.1)
+pts <- c(9:15)
+sil.scores <- NULL
+pts.list <- NULL
+eps.list <- NULL
+i = 0
+
+sil.scores <- NULL
+temp <- dist(data, method = 'euclidean')
+
+for(eps in eps){
+  for(pts in pts){
+    i = i + 1
+    scan <- dbscan(data, eps = eps, minPts = pts)
+    pts.list[i] <- pts
+    eps.list[i] <- eps
+    sil.scores[i] <- summary(silhouette(scan$cluster, dist = temp))$avg.width
+  }
+}
+
+dbg <- dbscan(data, eps = eps.list[which.max(sil.scores)], minPts = pts.list[which.max(sil.scores)])
+dbg$cluster
+pairs(data, col=dbg$cluster, pch=clusym[dbg$cluster])
+
+```
+The DBSCAN method returns 2 clusters composed the first by 160 and the second by 23 units.
+31 points are considered as outliers and to they are defined by label 0.
+It is obvious that two clusters are not sufficient, it is impossible that all units can be classified in only two clusters so we can say that this plot is not spatial and the method doesn't work well.
+
+

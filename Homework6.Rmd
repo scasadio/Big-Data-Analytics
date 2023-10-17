@@ -1,0 +1,142 @@
+---
+title: "Homework6"
+output:
+  html_document: default
+  pdf_document: default
+date: "2022-11-18"
+---
+
+(1)Cluster these data using Gaussian mixtures, t-mixtures, skew-normal mixtures, and skew-t mixtures, and decide which clustering you find most convincing, with reasons.
+
+```{r}
+
+library(fpc)
+library(smacof)
+library(cluster)
+library(pdfCluster)
+
+data <- read.table("C:/Users/Utente/OneDrive/Desktop/bigData/datasets/stars5000.dat", quote="\"", comment.char="",header = TRUE)
+data<-as.matrix(data)
+
+library(mclust)
+set.seed(1234)
+mdata<-Mclust(data,G=1:10, scale=TRUE)
+mdata$G
+summary(mdata)
+#summary(mdata$BIC)
+pairs(data,col=mdata$classification ,pch=clusym[mdata$classification])
+
+```
+The best models are the last 3 and are both VVV, so fully flexible models.
+
+```{r}
+library(teigen)
+set.seed(1234)
+tdata<-teigen(data,Gs=1:10)
+tdata$G
+summary(tdata)
+tdata$allbic
+#plot(tdata, what='contour')
+pairs(data,col=tdata$classification ,pch=clusym[tdata$classification])
+
+str(tdata)
+
+```
+
+The best number of clusters is 4 and the best model is a UUUU.
+```{r}
+adjustedRandIndex(mdata$classification,tdata$classification)
+
+```
+The two clustering are very different, in fact the adjusted Rand index is very low = 0.2375.
+
+```{r}
+library(mixsmsn)
+
+set.seed(1234)
+#scdata<-smsn.search(data,nu=1,g.min=1,g.max=5,family="Skew.normal",uni.Gama=TRUE, iter.max=50)
+
+sn_bic<-NULL
+for(i in 2:6){
+  sndata<-smsn.mmix(data, nu=1, g=i, family = "Skew.normal",iter.max=30)
+  sn_bic[i]<-sndata$bic
+}
+which.min(sn_bic)
+
+str(sndata)
+
+```
+The number of groups for which the BIC is lower is 5.
+
+```{r}
+set.seed(1234)
+
+#st.search <- smsn.mmix(data, nu=5,g.min=1,g.max=6, family="Skew.t")
+#st.search$criteria
+#st.search$best.model$bic
+#plot(1:6,st_search$criteria,type="l",ylab="BIC",xlab="Number of clusters")
+
+```
+The code doesn't work because the dataset has an high number of observations on a lower dimensional hyperplane, and the smsn.search is not suitable. 
+
+
+(2)In a situation with 10 variables and 4 mixture components, what is the
+number of free parameters.
+```{r}
+?nMclustParams
+VVV<-nMclustParams(modelName = "VVV", d= 10, G=4)
+VII<-nMclustParams(modelName = "VII", d= 10, G=4)
+EEE<-nMclustParams(modelName = "EEE", d= 10, G=4)
+
+
+```
+VVV = 263
+VII = 47
+EEE = 98
+Other models computed manually.
+
+
+(4)
+Step 1 Draw a random data subset of ns observations.
+```{r}
+library(stats)
+datas<-scale(data)
+set.seed(1234)
+ns <- 1000
+train <- sample(seq_len(nrow(data)), size = ns)
+sample <- datas[train,]
+
+```
+
+Step 2 Compute the mixture ML estimators using the EM-algorithm on that sub-set.
+```{r}
+time<-system.time(mclust<-Mclust(sample, G=2:15))
+summary(time)
+
+mclust$G
+
+```
+It takes 30.75 seconds to define 7 groups.
+
+Step 2 Run Mclust on the all data.
+```{r}
+time2<-system.time(mclust2<-Mclust(datas, G=2:15))
+summary(time2)
+
+mclust2$G
+
+```
+It takes 159.83 seconds (5 times the time occured for the mclust on the sample) to define the best number of clusters equal to 14.
+Here the occurring time is higher because we deal with big data. 
+We can say that for the big data it isn't a good method because it take much more time than the required for the sample, and the results obtained are very different (7groups vs 14 groups)
+
+Step 3 Use function predict.mclust to extend the fitted model to all observations (read the help page for how exactly to do that).
+```{r}
+posterior<- predict.Mclust(mclust, newdata = datas[-train,])
+#summary(mclust)
+
+pairs(data[-train,], pch= 20, cex=0.1, col= posterior$classification)
+
+```
+
+

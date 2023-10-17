@@ -1,0 +1,235 @@
+---
+title: "Homework 9"
+output:
+  pdf_document: default
+  html_document: default
+date: "2022-12-13"
+---
+(3)Use a simulation to empirically estimate the relative efficiencies of the following three estimators of the population mean: 
+(i) arithmetic mean, 
+(ii) median, 
+(iii) Huber's M-estimator with = 1.5 and based on scale estimated by the MAD separately for the following three distributions:
+
+N(0,1)
+```{r}
+library(robustbase)
+
+set.seed(1234)
+dataN<-list()
+rstN.mean=rep(NA,1000)
+rstN.median=rep(NA,1000)
+rstN.Hub=rep(NA,1000)
+rstN.mean<-rstN.median<-rstN.Hub<-numeric(0)
+
+for (i in 1:1000) {
+  dataN[[i]]<-rnorm(20,0,1)
+  rstN.mean[i] <-mean(dataN[[i]])
+  rstN.median[i]<-  median(dataN[[i]])
+  rstN.Hub[i]<- (huberM(dataN[[i]], k=1.5,se = TRUE))$mu
+}
+
+var.test(rstN.mean,rstN.median)
+```
+The ratio is computed as var(rstN.mean)/var(rstN.median), so since the result is 0.651 we can say that the estimator median has a bigger variance and so it is preferable.
+
+```{r}
+var.test(rstN.mean,rstN.Hub)
+```
+The ratio is 0.949 so in this case the huber's estimator is preferable. But is a value close to 1 so the work in a quite similar way.
+
+```{r}
+var.test(rstN.median,rstN.Hub)
+```
+We can say finally that the estimator median is the best, and the mean is the worst.
+The higher the variance the better the estimator.
+
+
+t2
+```{r}
+set.seed(1234)
+dataT2<-list()
+rstT2.mean=rep(NA,1000)
+rstT2.median=rep(NA,1000)
+rstT2.Hub=rep(NA,1000)
+rstT2.mean<-rstT2.median<-rstT2.Hub<-numeric(0)
+
+
+for (i in 1:1000) {
+  
+  dataT2[[i]]<-rt(20,2,1)
+  rstT2.mean[i] <-mean(dataT2[[i]])
+  rstT2.median[i]<-  median(dataT2[[i]])
+  rstT2.Hub[i]<- (huberM(dataT2[[i]], k=1.5,se = TRUE))$mu
+}
+
+var.test(rstT2.mean,rstT2.median)
+```
+Here the estimator median has a variance very small with respect to the variance of the other for the mean. In fact the first one is 7 times the other.
+
+
+```{r}
+var.test(rstT2.mean,rstT2.Hub)
+```
+Also the Huber's estimator is very small with respect to the other one.
+
+```{r}
+var.test(rstT2.median,rstT2.Hub)
+
+```
+Here we can see that the median is little bit worst that the Huber's.
+So we can say that the best is absolutely the estimator mean, and the worst is the Median in this situation.
+
+
+t4
+```{r}
+set.seed(1234)
+dataT4<-list()
+rstT4.mean=rep(NA,1000)
+rstT4.median=rep(NA,1000)
+rstT4.Hub=rep(NA,1000)
+rstT4.mean<-rstT4.median<-rstT4.Hub<-numeric(0)
+
+
+for (i in 1:1000) {
+  
+  dataT4[[i]]<-rt(20,4,1)
+  rstT4.mean[i] <-mean(dataT4[[i]])
+  rstT4.median[i]<-  median(dataT4[[i]])
+  rstT4.Hub[i]<- (huberM(dataT4[[i]], k=1.5,se = TRUE))$mu
+}
+
+var.test(rstT4.mean,rstT4.median)
+```
+The variance of the mean is very big with respect to the variance of the median.
+The mean is preferable.
+
+```{r}
+var.test(rstT4.mean,rstT4.Hub)
+```
+Alse here the mean is preferable to the Huber's.
+
+```{r}
+var.test(rstT4.median,rstT4.Hub)
+```
+The results are very similar with the previous case with t2-distribution.
+The mean is the best and the median is the worst.
+
+
+(4)Investigate the sensitivity of the two estimators to outliers.
+(a) There is an obvious outlier in the data set. Create a new data set identical to the original one, but with this outlier removed.
+
+```{r}
+data <- read.csv("C:/Users/Utente/OneDrive/Desktop/bigData/datasets/unicef97.dat", sep="")
+```
+
+LM
+```{r}
+set.seed(1234)
+data.lm <- lm(Child.Mortality~Literacy.Fem+Literacy.Ad+Drinking.Water+ Polio.Vacc+Tetanus.Vacc.Preg+Urban.Pop+Foreign.Aid, data=data)
+summary.lm(data.lm)
+plot(data.lm)
+```
+
+SaoTP seems to be a bad leverage point.
+
+
+MM
+```{r}
+set.seed(1234)
+data.mm <- lmrob(Child.Mortality~Literacy.Fem+Literacy.Ad+Drinking.Water+ Polio.Vacc+Tetanus.Vacc.Preg+Urban.Pop+Foreign.Aid, data=data)
+summary(data.mm)
+plot(data.mm)
+
+```
+
+Robustness weights: 
+ 3 observations c(4,80,91)
+	 are outliers with |weight| = 0
+In particular the sao tp seems to be a bad leverage, in both cases.
+
+```{r}
+set.seed(1234)
+mean(data$Child.Mortality)
+sum(data$Child.Mortality>92.08264)
+boxplot(data$Child.Mortality,main="Mortality",ylim=c(0,350))
+abline(mean(data$Child.Mortality),0,col=2) 
+which.max(data$Child.Mortality)
+
+mean(data$Child.Mortality[-80])
+
+boxplot(data$Child.Mortality[-80],main="Mortality",ylim=c(0,350))
+abline(mean(data$Child.Mortality[-80]),0,col=2) 
+```
+```{r}
+#right way
+which.min(data.lm$residuals)
+boxplot(data.lm$residuals[-91],main="mortality", ylim=c(-100,100))
+set.seed(1234)
+data.91 <- data[-c(91),]
+data.91lm <- lm(Child.Mortality~Literacy.Fem+Literacy.Ad+Drinking.Water+Polio.Vacc+Tetanus.Vacc.Preg+Urban.Pop+Foreign.Aid, data=data.91)
+summary.lm(data.91lm)
+plot(data.91lm)
+
+set.seed(1234)
+data.91mm <- lmrob(Child.Mortality~Literacy.Fem+Literacy.Ad+Drinking.Water+Polio.Vacc+Tetanus.Vacc.Preg+Urban.Pop+Foreign.Aid, data=data.91)
+summary(data.91mm)
+plot(data.91mm)
+###
+```
+
+The outlier that is shown in the first plot has been removed.
+
+Run both lm and lmrob on the new data set, and compare the results to the results of the same regression method on the original data by 
+(i) commenting on how t-test results of the variables have changed qualitatively.
+(ii) comparing the vectors of estimators of the regression coefficients. 
+Comment on what the results mean regarding the sensitivity of the two regressions.
+
+```{r}
+set.seed(1234)
+data.2 <- data[-c(80),]
+data.2lm <- lm(Child.Mortality~Literacy.Fem+Literacy.Ad+Drinking.Water+Polio.Vacc+Tetanus.Vacc.Preg+Urban.Pop+Foreign.Aid, data=data.2)
+summary.lm(data.2lm)
+plot(data.2lm)
+
+
+
+set.seed(1234)
+data.2mm <- lmrob(Child.Mortality~Literacy.Fem+Literacy.Ad+Drinking.Water+Polio.Vacc+Tetanus.Vacc.Preg+Urban.Pop+Foreign.Aid, data=data.2)
+summary(data.2mm)
+plot(data.2mm)
+```
+The point 4 is an outlier also with the modified dataset, while is show the point 90 instead of the 91.
+
+(b)Create a new data set that adds 10 outliers to the original data set, which are randomly generated.
+Run both lm and lmrob on the new data set, and compare the results to the results of the same regression method on the original data by 
+(i) commenting on how t-test results of the variables have changed qualitatively
+(ii) comparing the estimators of the regression coefficients. Comment on what the results mean regarding the sensitivity of the two regressions.
+```{r}
+set.seed(1234)
+data3 <- data
+
+for(i in 1:10){
+  x <- runif(1,0,1000)
+  for(i in 2:8)
+    x[i] <- runif(1,0,100)
+  data3 <- rbind(data3,x)
+}
+
+set.seed(1234)
+data.3lm<- lm(Child.Mortality~Literacy.Fem+Literacy.Ad+Drinking.Water+Polio.Vacc+Tetanus.Vacc.Preg+Urban.Pop+Foreign.Aid, data=data3)
+summary(data.3lm)
+plot(data.3lm)
+
+
+set.seed(1234)
+data.3mm <- lmrob(Child.Mortality~Literacy.Fem+Literacy.Ad+Drinking.Water+Polio.Vacc+Tetanus.Vacc.Preg+Urban.Pop+Foreign.Aid, data=data3)
+summary(data.3mm)
+plot(data.3mm)
+```
+
+How many of the added outliers does lmrob identify as outliers? Is the original "obvious outlier" still identified as outlier?
+
+There are very influent leverage points (127,123,129) that can be distinguished in both plots.
+The function lmrob has found only 5 outliers. 
+    5 observations c(91,123,127,129,131) are outliers.
+In the dataset[-80] there were 4 and 91, but here the point 4 is no longer considered as an outlier, only 91 remains.

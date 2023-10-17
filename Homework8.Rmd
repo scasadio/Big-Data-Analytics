@@ -1,0 +1,223 @@
+---
+title: "homework8"
+output:
+  pdf_document: default
+  html_document: default
+date: "2022-12-05"
+---
+```{r}
+library(fpc)
+library(smacof)
+library(cluster)
+library(pdfCluster)
+library(prabclus)
+library(mclust)
+library(teigen)
+library(mixsmsn)
+library(fda)
+library(flexmix)
+library(funFEM)
+```
+
+```{r}
+phonemes1000 <- read.table("C:/Users/Utente/OneDrive/Desktop/bigData/datasets/phonemes1000.dat", quote="\"", comment.char="", header = TRUE)
+phonemes256 <- as.matrix(phonemes1000[,1:256])
+
+phonemes257 <- phonemes1000[,257]
+
+```
+
+1)Represent the data in terms of a suitable B-spline basis. Show how well two exemplary observations are approximated in this way. 
+```{r}
+basis<-create.bspline.basis(c(1,256), nbasis=100)
+fd.phon<-Data2fd(1:256,y=t(phonemes256),basisobj=basis)
+plot(basis)
+plot(fd.phon)
+
+plotfit.fd(t(phonemes256),1:256,fd.phon,index=30,cex.pch=0.5)
+plotfit.fd(t(phonemes256),1:256,fd.phon,index=130,cex.pch=0.5)
+```
+If I consider only 10 basis the line of approximations will not follow the true behavior of points.
+We can note the high variance of the error where points are far from the line, this can be seen especially in the first plot for observation number 30.
+
+Run a functional principal component analysis,
+```{r}
+phon.pca10 <- pca.fd(fd.phon, nharm = 10 )
+plot(phon.pca10$harmonics) #there is not a lot of variation
+plot(phon.pca10$scores)
+pairs(phon.pca10$scores)
+cumsum(phon.pca10$varprop)
+
+```
+4 principal components are sufficient to explain the 86% of the total variance.
+
+```{r}
+phon.pca <- pca.fd(fd.phon, nharm = 4)
+plot(phon.pca$harmonics) 
+plot(phon.pca$scores)
+pairs(phon.pca$scores)
+```
+
+```{r}
+mean.phon<-mean.fd(fd.phon)
+
+approx<-phon.pca$harmonics
+i <- 1
+pcacoefi <- phon.pca$harmonics$coefs %*% phon.pca$scores[i,]+mean.phon$coefs
+approx$coefs <- pcacoefi
+
+for (i in 2:256){
+  pcacoefi <- phon.pca$harmonics$coefs %*% phon.pca$scores[i,]+mean.phon$coefs
+  approx$coefs <- cbind(approx$coefs, pcacoefi)
+}
+#dimnames(approx$coefs)[[2]]<-phonemes256[,1]
+#plotfit.fd(t(phonemes256),1:ncol(phonemes256),approx,index=30,cex.pch=0.5)
+#plotfit.fd(t(phonemes256),1:ncol(phonemes256),approx,index=130,cex.pch=0.5)
+
+```
+
+Run a funFEM-clustering, 
+```{r}
+set.seed(1234)
+femmodels <- c("DkBk", "DkB", "DBk",
+"DB", "AkjBk", "AkjB", "AkB", "AkBk", "AjBk", "AjB", "ABk",
+"AB")
+nmodels <- length(femmodels)
+femresults <- list()
+bestk <- bestbic <- numeric(0)
+
+K=2:10 
+fembic <- matrix(NA,nrow=nmodels,ncol=max(K))
+
+for (i in 1:nmodels){
+  print(femmodels[i])
+  femresults[[i]] <- funFEM(fd.phon,model=femmodels[i],K=K)
+  fembic[i,K] <- femresults[[i]]$allCriterions$bic
+  bestk[i] <- which(fembic[i,]==max(fembic[i,K],na.rm=TRUE))
+  bestbic[i] <- max(fembic[i,K],na.rm=TRUE)
+}
+besti <- which(bestbic==max(bestbic,na.rm=TRUE)) 
+femresults[[11]]$K
+femresults11 <- femresults[[11]]
+table(femresults11$cls)
+```
+9 clusters are found by the best model that maximize the BIC.
+The best model found is the 11 one, the ABk where the variance depends on the cluster.
+
+```{r}
+i <- 1
+plot(1:max(K),fembic[i,],col=i,pch=i,
+     ylim=c(min(fembic,na.rm=TRUE),max(fembic,na.rm=TRUE)),type="n")
+for(i in 1:nmodels){
+  text(1:max(K),fembic[i,],femmodels[i],col=i, cex=0.5)
+}
+
+pairs(phon.pca$scores, col=femresults11$cls, pch=clusym[femresults11$cls], cex = 0.5)
+plot(phon.pca$scores, col=femresults11$cls, pch=clusym[femresults11$cls], cex = 0.5)
+plot(phon.pca$scores[,3], col=femresults11$cls, pch=clusym[femresults11$cls], cex = 0.5)
+```
+From the plot we can see that the model which provides the highest BIC is the ABk.
+The plot of first two principal components is the best in terms of clusters separation while the plot of 3 and 4 principal components is the worst.
+
+
+and for comparison run a cluster analysis of your choice on the functional principal component scores.
+```{r}
+gapnc<- function(data,FUNcluster=kmeans,
+                 K.max=10, B = 100, d.power = 2,
+                 spaceH0 ="scaledPCA",
+                 method ="globalSEmax", SE.factor = 2,...){
+  gap1 <- clusGap(data,kmeans,K.max, B, d.power,spaceH0,...)
+  nc <- maxSE(gap1$Tab[,3],gap1$Tab[,4],method, SE.factor)
+  kmopt <- kmeans(data,nc,...)
+  out <- list()
+  out$gapout <- gap1
+  out$nc <- nc
+  out$kmopt <- kmopt
+  out
+}
+
+set.seed(1234)
+phon.gap <- gapnc(phon.pca$scores)
+table(phon.gap$kmopt$cluster)
+pairs(phon.pca$scores, col=phon.gap$kmopt$cluster,pch=clusym[phon.gap$kmopt$cluster], cex = 0.5)
+
+```
+9 clusters are found.
+Here the majority of units are classified in the first and last cluster, while before in the central clusters.
+As previous the plot referred to principal components 3 and 4 is so confused and clusters are not well separated.
+
+
+Visualise your results suitably, and compare the clustering results with the true phonem classes.
+```{r}
+adjustedRandIndex(femresults11$cls, phonemes257)
+
+adjustedRandIndex(phon.gap$kmopt$cluster, phonemes257)
+
+```
+The ARI values are not so good, the clustering is not very very different from the truth but their are not so sufficiently similar.
+
+
+3)
+(a) Explain in your own words what discriminant coordinates and asymmetric weighted discriminant coordinates are, and how they work.
+```{r}
+?plotcluster
+```
+
+1)The Dc method regards projection of high dimensional data with a given grouping to a lower dimensional subspace, it implicitly assumes that all classes have the same covariance matrix. The difference between the classes are measured as differences between class means. 
+The within groups cov matrix must be an adequate measure for the cov structure within all classes, which holds under approximate equality of their cov matrices.
+Under this assumption the within cov matrix of the projected data is the identity, so projected groups appear spherical.
+When there is only one Hclass and others are merged in one class, only first DC is informative, so there is an extension of this technique for s=2 that change the covariance structure by choosing further projections orthogonal to the DC in order to maximise the difference in the projected covariance matrices.
+They are SYMMETRIC so invariant with respect to the numbering of classes.
+
+2)With weighted asymmetric discriminant coordinates, we deal with class treated as homogeneous by an asymmetric projection method while the other may be heterogeneous. It is an improvement of a direct asymmetrisation of DC with respect to objects in the less homogeneous class (Nclass).
+This class often contains the heaviest outliers.
+The idea is to weight the points of the Nclass according to their mahalanobis distance to the Hclass in order to deal with the point in Nclass close to Hclass.
+The ratio between the projection of a between classes separation matrix and the projection of the covariance matrix within the homogeneous class, has to be maximised.
+
+
+
+(b) For the optimal 10-clusters Gaussian mixture clustering of the olive oil data show 2-dimensional discriminant coordinates, and asymmetric weighted discriminant coordinates for all clusters.
+```{r}
+data("oliveoil")
+olive<-oliveoil[,3:10]
+set.seed(1234567)
+molive<-Mclust(olive, G=10)
+summary(molive)
+molive$G
+
+clvecd<-molive$classification
+plotcluster(olive,clvecd, method = "dc",col = molive$classification, pch=clusym[molive$classification])
+
+for (i in 1:10) {  
+  plotcluster(olive, clvecd, clnum = i, method = "awc", col = molive$classification, pch=clusym[molive$classification])
+}
+
+```
+The plot that represents point using the first two discriminant coordinates does not provide a good separation of clusters.
+The plots of weighted asymmetric discriminant coordinates are drown considering different numbers of clusters considered as homogeneous.
+Maybe the best clusters separation is provided by treating 6 or 7 clusters as homogeneous.
+
+
+Comment on how these plots compare to the principal components plot in terms of showing the separation of the clusters.
+```{r}
+?princomp
+n=nrow(olive)
+pcaolive <- princomp(olive)
+summary(pcaolive)
+
+plot(pcaolive$scores[,1:2],col=molive$classification,pch=clusym[molive$classification])
+
+```
+The plot of showing the points projected in the first two principal components is a little bit confused but it seems similar to the plot of awd with two clusters treated as homogeneous.
+The best method seems to be the one with first 2 discriminant coordinates. 
+
+
+(c) Considering the phoneme data from question 1 and the funFEM-clustering, compare the plot of the first two dimensions of the Fisher discriminating subspace from funFEM with what you get when applying discriminant coordinates using plotcluster to the data set of the coefficients of the full dimensional B-spline basis and the funFEM-clustering.
+```{r}
+fdproj <- t(fd.phon$coefs) %*% femresults11$U[,1:2]  # first two dimensions of the fisher discriminating subspace
+pairs(fdproj,col=femresults11$cls,pch=19)
+plot(fdproj,col=femresults11$cls,pch=19,xlab="DC 1",ylab="DC 2")
+
+plotcluster(t(fd.phon$coefs), clvecd = femresults11$cls, method = "dc", col = femresults11$cls, pch=clusym[femresults11$cls])
+```
+The worst specified cluster is the sixth, but the others are quite good separated.

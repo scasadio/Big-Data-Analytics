@@ -1,0 +1,365 @@
+---
+title: "homework4"
+output:
+  pdf_document: default
+  html_document: default
+date: "2022-11-07"
+---
+
+(1)Compute an MDS and show the MDS plot. Try out different dissimilarity-based cluster analysis methods and decide which one you think is best here. Also choose a number of clusters and visualise your final clustering using the MDS. Give reasons for your choices.
+
+```{r}
+library(smacof)
+library(cluster)
+library(fpc)
+library(prabclus)
+data(tetragonula)
+
+ta <- alleleconvert(strmatrix=tetragonula)
+tai <- alleleinit(allelematrix=ta)
+
+data<-as.dist(tai$distmat) #matrix of genetic distances
+
+multidim<-mds(data, ndim = 8)
+mds<-multidim$conf
+pairs(mds)
+
+```
+
+```{r}
+data.single <- hclust(data,method="single")
+data.aver <- hclust(data,method="average")
+data.comp <- hclust(data,method="complete")
+data.ward <- hclust(data, method = "ward.D2")
+
+plot(data.single)
+plot(data.aver)
+plot(data.comp)
+plot(data.ward)
+
+```
+The single linkage tends to create big groups due to the chain effect. 
+The dendrogram of complete linkage is a little bit confused.
+
+```{r}
+pasw.sing <- pasw.aver <- pasw.comp<- pasw.ward <- list()
+pclusk.sing <- pclusk.aver <- pclusk.comp <- pclusk.ward <- list()
+psil.sing <- psil.aver <- psil.comp <- psil.ward <- NA
+
+for(k in 2:15){  print(k)
+  pasw.sing[[k]] <- cutree(data.single,k)
+  pasw.aver[[k]] <- cutree(data.aver,k)
+  pasw.comp[[k]] <- cutree(data.comp,k)
+  pasw.ward[[k]] <- cutree(data.ward,k)
+  pclusk.sing[[k]] <- silhouette(pasw.sing[[k]],dist=data)
+  pclusk.aver[[k]] <- silhouette(pasw.aver[[k]],dist=data)
+  pclusk.comp[[k]] <- silhouette(pasw.comp[[k]],dist=data)
+  pclusk.ward[[k]] <- silhouette(pasw.ward[[k]],dist=data)
+  psil.sing[k] <- summary(pclusk.sing[[k]],dist=data)$avg.width
+  psil.aver[k] <- summary(pclusk.aver[[k]],dist=data)$avg.width
+  psil.comp[k] <- summary(pclusk.comp[[k]],dist=data)$avg.width
+  psil.ward[k] <- summary(pclusk.ward[[k]],dist=data)$avg.width}
+
+```
+
+```{r}
+par(mfrow=c(2,2))
+
+plot(1:15,psil.sing,type="l",xlab="Number of clusters",ylab="ASW single linkage")
+plot(1:15,psil.aver,type="l",xlab="Number of clusters",ylab="ASW average linkage")
+plot(1:15,psil.comp,type="l",xlab="Number of clusters",ylab="ASW complete linkage")
+plot(1:15,psil.ward,type="l",xlab="Number of clusters",ylab="ASW ward linkage")
+```
+
+
+```{r}
+psil.sing
+```
+[1]        NA 0.1337048 0.1300300 0.2358381 0.3662410 0.4059551 0.3839740
+The best k according to the silhouette index is 6.
+
+```{r}
+psil.aver
+
+```
+[1]        NA 0.2840218 0.3813572 0.4148557 0.4156977 0.4047251 0.4231972 0.3909850
+ [9] 0.3940591 0.4860333 0.4810942 
+Best k=10
+
+```{r}
+psil.comp
+
+```
+ [1]        NA 0.1968201 0.2871145 0.3704419 0.3851125 0.3848889 0.3755640 0.3748770
+ [9] 0.4342340 0.4438783 0.4584169 0.4724129 0.4712033
+Best k=12
+
+```{r}
+psil.ward
+
+```
+[1]        NA 0.3181725 0.3923827 0.3779432 0.4115308 0.4478660 0.4605638 0.4666356
+ [9] 0.4785938 0.4726286
+Best k=9
+
+```{r}
+
+plot(pclusk.sing[[6]],main="Single Linkage")
+plot(pclusk.aver[[10]],main="Average Linkage")
+plot(pclusk.comp[[12]],main="Complete Linkage")
+plot(pclusk.ward[[10]],main="Ward Linkage")
+
+```
+
+We can see that values token with the average linkage method are bigger with respect to other methods and that they are the closest to 1.
+This means that with this methods units are generally well classificated.
+Anyway negative values does not mean that the correspondent units are missclassificated.
+Also the ward method returns a good classification and the worse seems to be the single linkage method.
+
+```{r}
+max(psil.sing,na.rm=TRUE)
+max(psil.aver,na.rm=TRUE)
+max(psil.comp,na.rm=TRUE)
+max(psil.ward,na.rm=TRUE)
+
+```
+Respectively:
+[1] 0.4059551
+[1] 0.4860333
+[1] 0.4724129
+[1] 0.4785938
+The best value is referred to the average linkage method that is computed with best number of cluster equal to 10
+
+
+```{r}
+
+par(mfrow=c(2,2))
+plot(multidim$conf,pch=clusym[pasw.sing[[6]]],col=pasw.sing[[6]],main="Single Linkage")
+
+plot(multidim$conf,pch=clusym[pasw.aver[[10]]],col=pasw.aver[[10]],main="Average Linkage")
+
+plot(multidim$conf,pch=clusym[pasw.comp[[12]]],col=pasw.comp[[12]],main="Complete Linkage")
+
+plot(multidim$conf,pch=clusym[pasw.ward[[9]]],col=pasw.ward[[9]],main="Ward Linkage")
+
+```
+ 
+Only one group is well defined by any method and it is always defined by 1 label.
+Also the clusters 2 and 3 are approximately defined in all methods, excepted for the single one that aggregates them in cluster 2.
+Especially about the complete linkage there are some clusters that doesn't make sense, for examples the 4, 7,a and b.
+The single linkage produce as expected very big clusters and others very small
+The multidimensional scaling seems similar to the average method plot, that remains the preferable and the more clear.
+
+(2)
+(a) Use the olive oil data with standardised variables. 
+
+```{r}
+library(pdfCluster)
+data("oliveoil")
+olive<-oliveoil[,3:10]
+olivescal<-scale(olive)
+kolives<-kmeans(olivescal, centers = 9, nstart = 100)
+
+kolives$cluster
+kolives$centers
+pairs(olivescal, cex=0.4, col=kolives$cluster, pch=clusym[kolives$cluster])
+cor(olivescal)
+
+
+```
+
+Compute a K-means clustering with fixed K = 9. Compute eight further K-means clusterings with fixed K = 9, where for each of them you leave out one of the eight variables. 
+
+```{r}
+olivek<-list()
+for (i in 1:8){
+  olivek[[i]]<-kmeans(olivescal[,-c(i)], centers = 9, nstart = 100)
+}
+
+```
+
+```{r}
+
+par(mfrow=c(2,2))
+pairs(olivescal[,-c(1)], cex=0.4, col=olivek[[1]]$cluster, pch=clusym[olivek[[1]]$cluster])
+
+pairs(olivescal[,-c(2)], cex=0.4, col=olivek[[2]]$cluster, pch=clusym[olivek[[2]]$cluster])
+
+pairs(olivescal[,-c(3)], cex=0.4, col=olivek[[3]]$cluster, pch=clusym[olivek[[3]]$cluster])
+
+pairs(olivescal[,-c(4)], cex=0.4, col=olivek[[4]]$cluster, pch=clusym[olivek[[4]]$cluster])
+
+par(mfrow=c(2,2))
+pairs(olivescal[,-c(5)], cex=0.4, col=olivek[[5]]$cluster, pch=clusym[olivek[[5]]$cluster])
+
+pairs(olivescal[,-c(6)], cex=0.4, col=olivek[[6]]$cluster, pch=clusym[olivek[[6]]$cluster])
+
+pairs(olivescal[,-c(7)], cex=0.4, col=olivek[[7]]$cluster, pch=clusym[olivek[[7]]$cluster])
+
+pairs(olivescal[,-c(8)], cex=0.4, col=olivek[[8]]$cluster, pch=clusym[olivek[[8]]$cluster])
+
+```
+
+Compute the eight ARIvalues between the clustering of the full data set and the eight clusterings with one variable left out. What do these results mean regarding the influence of the variables on the clustering of the full data?
+```{r}
+library(mclust)
+
+arival<-list()
+for (i in (1:8)) {
+  arival[[i]]<-adjustedRandIndex(kolives$cluster,olivek[[i]]$cluster)
+}
+
+arival
+
+```
+
+The eight values for ARI are all big (all are greater that 0.7) so the clustering provided by the full dataset and the ones provided by all reduced datasets are similar.
+Knowing that the ARI is equal to 1 in case of total agreement between two partitions, we can say that the biggest similarity appears when we exclude from the dataset the sixth variable, with an index=0.957. 
+The worse similarities are given by eliminating the variable 3 (=0.7105), and variable 5 (=0.759). We can say that a good vaulue of the index is from 0.8.
+These high values mean that the points are not assigned in a random way to the clusters.
+Furthermore they are only positive values, so the clusterings are in common more things than we have randomly assigned the points.
+
+
+(b)
+Do the same thing, i.e., computing a clustering of the full data set and clusterings with each of the eight variables left out, and the eight corresponding ARI-values, with Average Linkage clustering based on the Euclidean distance, where the number of clusters is estimated by the ASW.
+```{r}
+library(cluster)
+olives.eucl<-dist(olivescal, method = "euclidean")
+
+avgeucl.olives<-hclust(olives.eucl, method = "average")
+plot(as.dendrogram(avgeucl.olives))
+
+pasw <- NA
+pclusk <- list()
+psil <- list()
+
+for (k in 2:15){
+  pclusk[[k]] <- cutree(avgeucl.olives,k)
+  psil[[k]] <- silhouette(pclusk[[k]],dist=olives.eucl)
+  pasw[k] <- summary(psil[[k]])$avg.width
+}
+plot(1:15,pasw,type="l",xlab="Number of Clusters",ylab="ASW")
+pasw
+which.max(pasw)
+
+```
+Best k=10:
+[1]        NA 0.3002500 0.2245704 0.2786731 0.2542707 0.3239446 0.3168433 0.3027774
+ [9] 0.3426136 0.3563440 0.3394260
+
+```{r}
+
+avgeucl.cut<-cutree(avgeucl.olives, k=10)
+
+eucl.olives<-list()
+avg.eucl<-list()
+avg.cut<-list()
+
+for (i in 1:8){
+  eucl.olives[[i]]<-dist(olivescal[,-c(i)], method = "euclidean")
+  avg.eucl[[i]]<-hclust(eucl.olives[[i]], method = "average")
+  avg.cut[[i]]<-cutree(avg.eucl[[i]],10)
+}
+
+arival.k10<-list()
+for (i in (1:8)) {
+  arival.k10[[i]]<-adjustedRandIndex(avg.cut[[i]],avgeucl.cut)
+}
+
+arival.k10
+```
+All but one ARI values are good. The value obtained by excluding the variable 6 is the worst, so if we exclude it the resulting reduced dataset is not enough similar to the full dataset. 
+On the opposite we can note that by excluding the second variable the differences are very small.
+About seventh variable, its exclusion provide only an acceptable value of similarity of clustering.
+
+(c)
+Do the same thing with Average Linkage clustering based on the L1-distance, where
+the number of clusters is estimated by the ASW.
+```{r}
+olives.man<-dist(olivescal, method = "manhattan")
+
+avgman.olives<-hclust(olives.man, method = "average")
+plot(as.dendrogram(avgman.olives))
+
+paswm <- NA
+pcluskm <- list()
+psilm <- list()
+
+for (k in 2:10){
+  pcluskm[[k]] <- cutree(avgman.olives,k)
+  psilm[[k]] <- silhouette(pcluskm[[k]],dist=olives.man)
+  paswm[k] <- summary(psilm[[k]])$avg.width
+}
+
+plot(1:10,paswm,type="l",xlab="Number of Clusters",ylab="ASW")
+paswm
+which.max(paswm)
+```
+Best k=8:
+[1]        NA 0.3559596 0.3596757 0.3700490 0.3442303 0.3391477 0.3238660 0.3752852
+ [9] 0.3652925 
+
+```{r}
+avgman.cut<-cutree(avgman.olives, k=8)
+
+olives.man<-list()
+avg.man<-list()
+avg.mancut<-list()
+
+for (i in 1:8){
+  olives.man[[i]]<-dist(olivescal[,-c(i)], method = "manhattan")
+  avg.man[[i]]<-hclust(olives.man[[i]], method = "average")
+  avg.mancut[[i]]<-cutree(avg.man[[i]],8)
+}
+
+arival.mank8<-list()
+for (i in (1:8)) {
+  arival.mank8[[i]]<-adjustedRandIndex(avg.mancut[[i]],avgman.cut)
+}
+arival.mank8
+
+
+```
+
+The majority of ARI values are enough acceptable, the worse values are related to the exclusion of variables 1, 2 and 8 while the best similarity refers to the dataset without the first variable.
+
+Summarizing it is evident the fact that euclidean distance provides better clustering results excluding one variable.
+With manhattan distance variables are more correlated and excluding one of them produce very different results,
+
+
+(4)
+(a)Focusing on Complete Linkage clustering, what is the best distance in these experiments (including the standardisation method)? Explain how this can be seen from the plots regarding the Complete Linkage results (i.e., explain roughly what these plots show).
+
+The adjusted random index establishes a line by using the expected similarity between all pairs of clustering that are specified by a random model.
+Here it is used in the y-axis in order to verify the accuracy of the clustering by comparing each time a training dataset with two classes of 50 observations and 2000 variables.
+In the plots there are 5 lines, one for any type of aggregation distance, and these lines describe the different values of ARI depending on which standardisation method is considered (on the x-axis).
+We can note that, about only the complete linkage clustering, the line with highest values is the one related to the Manhattan distance, this is true for any case considered because it provides an impartial aggregation by treating all variables equally.
+But for the simple normal (0.99) setup it is not so obvious. This probably is due to the fact that in this setup a lot of noise is considered and so only the 1% of the variables shows distinguishable classes. Also in this case the best value is achived without computing any kind of standardisation.
+Worst cases are for any type of setup L4 and Max aggregation methods.
+The highest the degree of the minkowski distance, the larger within class distance occur and this can be a problem for the complete linkage to find the true clusters.
+Excepted for the simple normal setup for which all aggregation method are very good, in every cases the MAD standardisation provides the worst values of the ARI index, while the boxplot transformation provides the best one. This last one state is not true in the simple normal (0.99 noise) set up.
+Generally I can say that the boxplot strandardisation method with Manhattan distance used for aggregation, is the preferable combination for the biggest majority of setup choices.
+
+
+(b) Explain roughly the basic idea of boxplot transformation.
+
+It is a new kind of single variable standardization that works on the biggest part of observation and that brings outliers closer to the main quantity proposed.
+This king of sigle variable transformation aims to  control the influence of the outliers, since we know that they can create problems on distances 
+regardless of whether standardisation method is used.
+The lower quartile, the median and the upper quartile are the synthesis values of a quantitative variable that define the structure of a boxplot. Graphically it is the best way to see if a point is an outlier, and on this property is based the idea of boxplot transformation.
+By setting specific range of standardised values for the previous 3 synthesis values is possible to state an asymmetric outlier definition more suitable for asymmetric distribution.
+In this way we can bring outliers closer to the data so that they are no longer considered outliers.
+The resulting graph is smoother than ones for other methods.
+
+
+(c) Discuss how Complete Linkage and Partitioning Around Medoids clustering
+compare overall.
+
+Partitioning Around Medoids is an algorithm for clustering analysis which searches for k representative objects in the dataset (medoids) and assigns each object to the closest medoid in order to create clusters.
+The main difference that we can note is that in the PAM the L4 distance gives better results with respect that L4 in Complete linkage method.
+Especially in the simple normal (0.99 noise) and in simple normal cases it is the best choice.
+The graph referred to the simple normal setup for PAM is interesting because we can note that the bigger the degree of L (excepted for L1 that is acceptable), the better the ARI value, but here the best value is lower with respect to the complete linkage (.7 vs .9). It seems that in both cases range standardisation is the worst.
+In the second setup both graphs follow similar paths with mad and box as worst standardisation methods, range or none are preferable, and the maximum distance method is to avoid. This is the uniqe case in which L2 is good (for range and none).
+Normal, t and noise (0.1) setup views L1 as best choice with worst case without standardisation in both cases. L2 very bad choice.
+With noise (0.5), always best L1 with box transormation. PAM returns better values of ARi for all other distances with respect to the complete linkage.
+The last case with noise (0.9) return similar trends for both clustering methods but the L1 distance take higher values for complete with box as best choice, while in PAM the best is with range.
